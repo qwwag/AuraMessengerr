@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA | SKAM EDITION</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --aura: #00f2ff; --skam: #ff004c; --bg: #050505; --panel: #111; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--bg); color: white; height: 100vh; overflow: hidden; }
+
+        .screen { display: none; height: 100vh; width: 100%; }
+        .active { display: flex !important; }
+
+        /* AUTH */
+        #screen-auth { justify-content: center; align-items: center; background: #000; }
+        .auth-box { background: var(--panel); padding: 30px; border-radius: 15px; border: 1px solid var(--aura); width: 320px; text-align: center; }
+        
+        /* APP LAYOUT */
+        .app-container { display: flex; width: 100%; height: 100%; }
+        .sidebar { width: 300px; background: var(--panel); border-right: 1px solid #222; display: flex; flex-direction: column; padding: 20px; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #080808; }
+
+        /* SKAM VKLADKA */
+        .skam-vkladka { 
+            background: rgba(255, 0, 76, 0.1); 
+            border: 1px solid var(--skam); 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin-top: 20px;
+            display: none; /* Скрыто по умолчанию */
+        }
+        .skam-vkladka h4 { color: var(--skam); font-size: 12px; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 2px; }
+
+        /* CHAT UI */
+        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .message { background: #1a1a1a; padding: 10px 15px; border-radius: 10px; max-width: 80%; border-left: 3px solid var(--aura); position: relative; }
+        .message.my { align-self: flex-end; border-left: none; border-right: 3px solid var(--aura); background: #222; }
+        .msg-user { font-size: 10px; color: var(--aura); font-weight: bold; display: block; margin-bottom: 5px; }
+        .msg-user.skam-tag { color: var(--skam); }
+
+        /* INPUTS */
+        input { width: 100%; padding: 12px; background: #000; border: 1px solid #333; color: white; border-radius: 8px; outline: none; margin-top: 10px; }
+        input:focus { border-color: var(--aura); }
+        .btn { padding: 12px; background: var(--aura); border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: black; margin-top: 10px; transition: 0.3s; width: 100%; }
+        .btn-skam { background: var(--skam); color: white; font-size: 11px; margin-top: 5px; }
+        
+        .chat-input-row { padding: 20px; background: #111; display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- ЭКРАН ВХОДА -->
+    <div id="screen-auth" class="screen active">
+        <div class="auth-box">
+            <h2 style="color:var(--aura); letter-spacing: 5px;">AURA</h2>
+            <div id="auth-mode-text" style="font-size: 10px; color: #555; margin-bottom: 15px;">АВТОРИЗАЦИЯ</div>
+            <input type="text" id="log" placeholder="Логин">
+            <input type="password" id="pas" placeholder="Пароль">
+            <button class="btn" onclick="handleAuth()" id="btn-text">ВОЙТИ</button>
+            <p onclick="toggleMode()" id="toggle-link" style="font-size: 11px; margin-top: 20px; cursor: pointer; opacity: 0.5;">Нет аккаунта? <span style="color:var(--aura)">Создать</span></p>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ПРИЛОЖЕНИЯ -->
+    <div id="screen-app" class="screen">
+        <div class="app-container">
+            <div class="sidebar">
+                <h2 style="color:var(--aura); letter-spacing: 3px;">AURA</h2>
+                <div style="margin-top:20px; background: #000; padding: 15px; border-radius: 10px; border: 1px solid #222;">
+                    <div id="display-name" style="font-weight: bold;"></div>
+                    <div style="font-size: 12px; color: var(--aura);"><span id="display-balance">0</span> AUR</div>
+                </div>
+
+                <!-- ТА САМАЯ ВКЛАДКА ДЛЯ SKAM -->
+                <div id="skam-panel" class="skam-vkladka">
+                    <h4>SKAM VKLADKA</h4>
+                    <input type="text" id="target-user" placeholder="Кому (Логин)" style="font-size: 11px; padding: 8px;">
+                    <button class="btn btn-skam" onclick="skamGiveAur()">ВЫДАТЬ 1000 AUR</button>
+                    <button class="btn btn-skam" onclick="skamMakeSkam()">НАЗНАЧИТЬ SKAM</button>
+                </div>
+
+                <div style="flex:1"></div>
+                <button onclick="location.reload()" style="background:none; border:none; color:#444; cursor:pointer; font-size: 12px;">Выйти из системы</button>
+            </div>
+
+            <div class="chat-area">
+                <div style="padding: 15px; background: #111; border-bottom: 1px solid #222; font-weight: bold; color: var(--aura);">ОБЩИЙ ЧАТ</div>
+                <div id="chat-window">
+                    <!-- Сообщения будут тут -->
+                </div>
+                <div class="chat-input-row">
+                    <input type="text" id="msgInput" placeholder="Введите зашифрованное сообщение..." style="margin:0">
+                    <button class="btn" onclick="sendMsg()" style="width: 120px; margin:0">ОТПРАВИТЬ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация базы
+        let db = JSON.parse(localStorage.getItem('aura_v3_db')) || { users: [], msgs: [] };
+        let currentUser = null;
+        let isLoginMode = true;
+        const SECRET = "aura_ultra_shield";
+
+        function save() { localStorage.setItem('aura_v3_db', JSON.stringify(db)); }
+
+        // Переключение Вход / Регистрация
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-mode-text').innerText = isLoginMode ? "АВТОРИЗАЦИЯ" : "РЕГИСТРАЦИЯ";
+            document.getElementById('btn-text').innerText = isLoginMode ? "ВОЙТИ" : "СОЗДАТЬ АККАУНТ";
+            document.getElementById('toggle-link').innerHTML = isLoginMode ? 'Нет аккаунта? <span style="color:var(--aura)">Создать</span>' : 'Уже есть аккаунт? <span style="color:var(--aura)">Войти</span>';
+        }
+
+        // Авторизация
+        function handleAuth() {
+            const l = document.getElementById('log').value.trim();
+            const p = document.getElementById('pas').value.trim();
+            if(!l || !p) return alert("Заполни поля!");
+
+            if(isLoginMode) {
+                const user = db.users.find(u => u.login === l && u.pass === p);
+                if(user) { currentUser = user; launch(); } else alert("Ошибка входа!");
+            } else {
+                if(db.users.find(u => u.login === l)) return alert("Логин занят!");
+                db.users.push({ login: l, pass: p, aur: 500, isSkam: (db.users.length === 0) });
+                save();
+                alert("Аккаунт создан! Теперь войдите.");
+                toggleMode();
+            }
+        }
+
+        // Запуск приложения
+        function launch() {
+            document.getElementById('screen-auth').classList.remove('active');
+            document.getElementById('screen-app').classList.add('active');
+            
+            document.getElementById('display-name').innerText = currentUser.login + (currentUser.isSkam ? " [SKAM]" : "");
+            document.getElementById('display-balance').innerText = currentUser.aur;
+
+            // Показываем SKAM VKLADKA если юзер - SKAM
+            if(currentUser.isSkam) {
+                document.getElementById('skam-panel').style.display = "block";
+            }
+            renderChat();
+        }
+
+        // ЧАТ ЛОГИКА
+        function sendMsg() {
+            const inp = document.getElementById('msgInput');
+            if(!inp.value) return;
+
+            // Шифруем
+            const encrypted = CryptoJS.AES.encrypt(inp.value, SECRET).toString();
+            
+            db.msgs.push({
+                user: currentUser.login,
+                text: encrypted,
+                isSkam: currentUser.isSkam,
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            });
+            
+            inp.value = '';
+            save();
+            renderChat();
+        }
+
+        function renderChat() {
+            const win = document.getElementById('chat-window');
+            win.innerHTML = '';
+            
+            db.msgs.forEach(m => {
+                const bytes = CryptoJS.AES.decrypt(m.text, SECRET);
+                const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                const isMy = m.user === currentUser.login;
+
+                win.innerHTML += `
+                    <div class="message ${isMy ? 'my' : ''}">
+                        <span class="msg-user ${m.isSkam ? 'skam-tag' : ''}">${m.user} ${m.isSkam ? '[SKAM]' : ''}</span>
+                        <div>${decrypted}</div>
+                        <small style="font-size:8px; opacity:0.3; float:right;">${m.time}</small>
+                    </div>
+                `;
+            });
+            win.scrollTop = win.scrollHeight;
+        }
+
+        // SKAM ФУНКЦИИ (ДЛЯ SKAM VKLADKA)
+        function skamGiveAur() {
+            const target = document.getElementById('target-user').value;
+            const user = db.users.find(u => u.login === target);
+            if(user) {
+                user.aur += 1000;
+                save();
+                alert("Выдано 1000 AUR пользователю " + target);
+            } else alert("Пользователь не найден!");
+        }
+
+        function skamMakeSkam() {
+            const target = document.getElementById('target-user').value;
+            const user = db.users.find(u => u.login === target);
+            if(user) {
+                user.isSkam = true;
+                save();
+                alert(target + " теперь официально SKAM!");
+            } else alert("Пользователь не найден!");
+        }
+    </script>
+</body>
+</html>
